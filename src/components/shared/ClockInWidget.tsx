@@ -19,6 +19,8 @@ export default function ClockInWidget() {
         setBusy(true);
         try {
             await fn();
+        } catch (err) {
+            console.error(err);
         } finally {
             setBusy(false);
         }

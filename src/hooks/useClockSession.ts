@@ -9,14 +9,11 @@ export function useClockSession() {
     const [now, setNow] = useState(() => Date.now());
 
     const refresh = useCallback(async () => {
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        const end = new Date();
-        end.setHours(23, 59, 59, 999);
         try {
-            const list = await api.get<ApiWorkSession[]>(
-                `/work-sessions/me?from=${start.toISOString()}&to=${end.toISOString()}`,
-            );
+            // ohne Datumsfilter — sonst bleibt eine offene Session von
+            // gestern unsichtbar und clock-in antwortet 409. Serverseitig
+            // filtern (?open=true), falls die Liste je zu groß wird.
+            const list = await api.get<ApiWorkSession[]>('/work-sessions/me');
             setSession(list.find((s) => !s.clockOut) ?? null);
         } catch {
             setSession(null);
@@ -52,8 +49,12 @@ export function useClockSession() {
     }
 
     async function clockIn() {
-        await api.post('/work-sessions/clock-in');
-        await refresh();
+        try {
+            await api.post('/work-sessions/clock-in');
+        } finally {
+            // 409 = anderer Tab war schneller: State trotzdem nachziehen
+            await refresh();
+        }
     }
     async function clockOut() {
         if (!session) return;
